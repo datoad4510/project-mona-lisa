@@ -1,3 +1,0 @@
-psychopy>=2026.1.0,<2027.0.0
-pylsl>=1.16.0
-neurosity>=0.3.0

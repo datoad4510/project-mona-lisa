@@ -1,0 +1,7 @@
+PyQt5>=5.15
+numpy>=1.24
+scipy>=1.11
+scikit-learn>=1.3
+# UnicornPy is NOT on PyPI – it ships with the g.tec Unicorn Suite installer.
+# After installing Unicorn Suite, copy UnicornPy.so (Linux/macOS) or
+# UnicornPy.pyd (Windows) from the SDK folder into your venv site-packages.
