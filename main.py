@@ -18,10 +18,10 @@ from psychopy import core, event, visual
 from pylsl import StreamInfo, StreamOutlet, local_clock
 
 
-DEFAULT_FREQS = [10.0, 12.0, 15.0, 20.0]
+DEFAULT_FREQS = [8.0, 10.0, 12.0, 15.0]
 DEFAULT_FLICKER_S = 10.0
 DEFAULT_REST_S = 5.0
-DEFAULT_REFRESH_HZ = 60.0
+FALLBACK_REFRESH_HZ = 300.0
 DEFAULT_DOT_SIZE_PX = 120
 
 
@@ -38,8 +38,15 @@ def parse_args():
                    help="Seconds of flicker per frequency.")
     p.add_argument("--rest-s", type=float, default=DEFAULT_REST_S,
                    help="Seconds of blank rest between frequencies.")
-    p.add_argument("--refresh", type=float, default=DEFAULT_REFRESH_HZ,
-                   help="Monitor refresh rate in Hz.")
+    p.add_argument(
+        "--refresh",
+        type=float,
+        default=None,
+        help=(
+            "Monitor refresh rate in Hz. If omitted, PsychoPy's measured value is used. "
+            f"If measurement fails, fallback is {FALLBACK_REFRESH_HZ:.0f} Hz."
+        ),
+    )
     p.add_argument("--dot-size-px", type=int, default=DEFAULT_DOT_SIZE_PX)
     p.add_argument("--windowed", action="store_true",
                    help="Run in a window instead of fullscreen (timing less reliable).")
@@ -219,12 +226,6 @@ def main():
     args = parse_args()
     session_id = uuid.uuid4().hex[:8]
 
-    schedule = [(f, *snap_to_refresh(f, args.refresh)) for f in args.frequencies]
-
-    print("Frequency schedule:")
-    for requested, n, actual in schedule:
-        print(f"  requested {requested:6.2f} Hz -> {n} frames/cycle -> actual {actual:7.4f} Hz")
-
     win = visual.Window(
         size=(1024, 768),
         color="black",
@@ -238,12 +239,28 @@ def main():
         win.mouseVisible = True
 
     measured = win.getActualFrameRate(nIdentical=10, nMaxFrames=120, nWarmUpFrames=10, threshold=1)
+    # If --refresh is omitted (or set to 0), use auto-detected refresh.
+    refresh_hz = None if args.refresh in (None, 0.0) else float(args.refresh)
     if measured is None:
-        print(f"WARNING: could not measure refresh; assuming {args.refresh} Hz")
+        if refresh_hz is None:
+            refresh_hz = FALLBACK_REFRESH_HZ
+        print(f"WARNING: could not measure refresh; using {refresh_hz} Hz")
     else:
-        print(f"Measured refresh: {measured:.3f} Hz (configured {args.refresh} Hz)")
-        if abs(measured - args.refresh) > 1.0:
-            print("WARNING: measured refresh differs from configured value; flicker frequencies will be off.")
+        if refresh_hz is None:
+            refresh_hz = float(measured)
+            print(f"Measured refresh: {measured:.3f} Hz (using measured value)")
+        else:
+            print(f"Measured refresh: {measured:.3f} Hz (configured {refresh_hz} Hz)")
+            if abs(measured - refresh_hz) > 1.0:
+                print("WARNING: measured refresh differs from configured value; flicker frequencies will be off.")
+
+    # Normalize for downstream code/markers.
+    args.refresh = float(refresh_hz)
+
+    schedule = [(f, *snap_to_refresh(f, args.refresh)) for f in args.frequencies]
+    print("Frequency schedule:")
+    for requested, n, actual in schedule:
+        print(f"  requested {requested:6.2f} Hz -> {n} frames/cycle -> actual {actual:7.4f} Hz")
 
     dot = visual.Circle(
         win,

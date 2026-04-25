@@ -23,12 +23,13 @@ Use Python `>=3.9` and `<3.12` (for example `python3.11`).
 python3.11 main.py
 ```
 
-Defaults: 10, 12, 15, 20 Hz; 10 s flicker each; 5 s rest between; 60 Hz monitor; fullscreen.
+Defaults: 8, 10, 12, 15 Hz; 10 s flicker each; 5 s rest between; 300 Hz monitor; fullscreen.
 
 Common flags:
 
 ```bash
-python3.11 main.py --frequencies 10 12 15 20 --flicker-s 10 --rest-s 5 --refresh 60
+python3.11 main.py --frequencies 8 10 12 15 --flicker-s 10 --rest-s 5 --refresh 300
+python3.11 main.py --refresh 0               # auto-detect refresh instead
 python3.11 main.py --windowed                 # run in a window (timing less reliable)
 ```
 
