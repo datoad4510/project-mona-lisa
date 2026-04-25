@@ -44,7 +44,7 @@ def bandpower(
     for ch in data:
         freqs, psd = welch(ch, fs=fs, nperseg=int(nperseg))
         mask = (freqs >= band[0]) & (freqs <= band[1])
-        powers.append(np.trapz(psd[mask], freqs[mask]))
+        powers.append(np.trapezoid(psd[mask], freqs[mask]))
     return float(np.mean(powers))
 
 

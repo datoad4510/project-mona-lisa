@@ -24,7 +24,7 @@ import numpy as np
 
 from PyQt5.QtCore    import Qt, QTimer, pyqtSignal
 from PyQt5.QtGui     import QColor, QPainter, QFont, QBrush
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QSizePolicy
 
 import config
 
@@ -37,7 +37,8 @@ class TrainingScreen(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setFixedSize(config.CANVAS_W, config.CANVAS_H)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.setMinimumSize(400, 300)
 
         self._epochs:  List[np.ndarray] = []
         self._labels:  List[int]        = []
@@ -166,7 +167,8 @@ class TrainingScreen(QWidget):
             # Instruction / ISI / done — grey background with text
             painter.fillRect(self.rect(), QBrush(QColor(40, 40, 40)))
             painter.setPen(QColor(220, 220, 220))
-            font = QFont("Arial", 16)
+            font_pt = max(10, int(self.height() * 0.029))
+            font = QFont("Arial", font_pt)
             font.setWordSpacing(2)
             painter.setFont(font)
             painter.drawText(self.rect(), Qt.AlignCenter, self._instruction_text)

@@ -50,7 +50,6 @@ from PyQt5.QtWidgets import (
     QMainWindow, QWidget, QStackedWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QPushButton, QProgressBar, QFrame, QSizePolicy,
 )
-
 import config
 from bci            import Headset, SSVEPDetector, ColorClassifier
 from ui.canvas      import PaintCanvas
@@ -83,11 +82,12 @@ _FREQ_TO_REGION: Dict[float, int] = {
 class BCIPaintApp(QMainWindow):
     """Root window; orchestrates all states."""
 
-    def __init__(self, mock: bool = False, debug_click: bool = False):
+    def __init__(self, mock: bool = False, debug_click: bool = False, fullscreen: bool = False):
         super().__init__()
-        self.setWindowTitle("BCI Paint — Neurosity Crown")
+        self.setWindowTitle("BCI Paint — Unicorn Hybrid Black")
         self.mock        = mock
         self.debug_click = debug_click
+        self._fullscreen = fullscreen
 
         # BCI components
         self._headset     = Headset(mock=mock)
@@ -110,13 +110,16 @@ class BCIPaintApp(QMainWindow):
         self._setup_ui()
         self.setFocusPolicy(Qt.StrongFocus)   # ensure main window captures key events
         self._connect_headset()
+        if self._fullscreen:
+            self.showFullScreen()
 
     # ------------------------------------------------------------------
     # UI construction
     # ------------------------------------------------------------------
 
     def _setup_ui(self) -> None:
-        self.setFixedSize(config.CANVAS_W + 220, config.CANVAS_H + 80)
+        self.resize(config.CANVAS_W + 220, config.CANVAS_H + 80)
+        self.setMinimumSize(620, 380)
 
         central = QWidget()
         self.setCentralWidget(central)
@@ -126,10 +129,11 @@ class BCIPaintApp(QMainWindow):
 
         # ── Main stacked area ───────────────────────────────────────────
         self._stack = QStackedWidget()
-        self._stack.setFixedSize(config.CANVAS_W, config.CANVAS_H)
+        self._stack.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self._stack.setMinimumSize(400, 300)
 
         # Page 0 – connecting splash
-        self._page_connecting = self._make_splash("Connecting to Neurosity Crown…")
+        self._page_connecting = self._make_splash("Connecting to Unicorn Hybrid Black…")
         self._stack.addWidget(self._page_connecting)
 
         # Page 1 – training screen
@@ -301,13 +305,13 @@ class BCIPaintApp(QMainWindow):
         lbl.setStyleSheet(
             "background: #1a1a2e; color: #e0e0e0; font-size: 18px; padding: 40px;"
         )
-        lbl.setFixedSize(config.CANVAS_W, config.CANVAS_H)
+        lbl.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         return lbl
 
     def _make_ready_screen(self) -> QWidget:
         """Ready screen with a prominent Start Painting button."""
         w = QWidget()
-        w.setFixedSize(config.CANVAS_W, config.CANVAS_H)
+        w.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         w.setStyleSheet("background: #1a1a2e;")
         layout = QVBoxLayout(w)
         layout.setAlignment(Qt.AlignCenter)
@@ -569,7 +573,17 @@ class BCIPaintApp(QMainWindow):
     # ------------------------------------------------------------------
 
     def keyPressEvent(self, event) -> None:
-        if event.key() == Qt.Key_Space and self._state == "READY":
+        if event.key() == Qt.Key_F11:
+            if self.isFullScreen():
+                self.showNormal()
+                self._fullscreen = False
+            else:
+                self.showFullScreen()
+                self._fullscreen = True
+        elif event.key() == Qt.Key_Escape and self.isFullScreen():
+            self.showNormal()
+            self._fullscreen = False
+        elif event.key() == Qt.Key_Space and self._state == "READY":
             self._go_painting()
         elif event.key() == Qt.Key_R and self._state == "PAINTING":
             self._reset_canvas()

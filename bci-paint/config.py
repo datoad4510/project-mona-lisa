@@ -15,25 +15,27 @@ CHANNEL_NAMES = ["Fz", "C3", "Cz", "C4", "Pz", "PO7", "Oz", "PO8"]
 SSVEP_CHANNELS         = ["PO7", "PO8"]
 SSVEP_CHANNEL_INDICES  = [CHANNEL_NAMES.index(c) for c in SSVEP_CHANNELS]
 
-# Best channels for colour mental imagery (frontal/central)
-COLOR_CHANNELS         = ["Fz", "C3", "Cz", "C4"]
+# Best channels for colour mental imagery (all 8 channels; even-numbered
+# channels 2,4,6,8 — C3, C4, PO7, PO8 — are weighted more heavily)
+COLOR_CHANNELS         = ["Fz", "C3", "Cz", "C4", "Pz", "PO7", "Oz", "PO8"]
 COLOR_CHANNEL_INDICES  = [CHANNEL_NAMES.index(c) for c in COLOR_CHANNELS]
+# Per-channel significance weights (channels 2,4,6,8 in 1-indexed = C3,C4,PO7,PO8)
+COLOR_CHANNEL_WEIGHTS  = [1.0, 2.0, 1.0, 2.0, 1.0, 2.0, 1.0, 2.0]
 
 # ── SSVEP detection ───────────────────────────────────────────────────────────
 SSVEP_WINDOW_SEC         = 4.0                          # analysis window (s)
 SSVEP_WINDOW_SAMPLES     = int(SSVEP_WINDOW_SEC * SAMPLE_RATE)
 SSVEP_SNR_THRESHOLD      = 3.5                          # min SNR to confirm
 # One flickering frequency per canvas region (Hz) — one per circle
-SSVEP_FREQUENCIES        = [8.0, 10.0, 12.0, 15.0]
+SSVEP_FREQUENCIES        = [8.0, 10.0, 12.0]
 
 # ── Colour training & classification ─────────────────────────────────────────
 TRAINING_COLORS = [
     {"name": "Red",    "rgb": (231,  76,  60)},
     {"name": "Yellow", "rgb": (241, 196,  15)},
     {"name": "Blue",   "rgb": (52,  152, 219)},
-    {"name": "Green",  "rgb": (39,  174,  96)},
 ]
-N_TRAINING_COLORS           = 4    # all four colours
+N_TRAINING_COLORS           = 3    # Red, Yellow, Blue
 TRAINING_TRIALS_PER_COLOR   = 10
 TRAINING_STIMULUS_MS        = 2000  # display colour patch (ms)
 TRAINING_ISI_MS             = 1000  # inter-stimulus interval  (ms)
@@ -52,7 +54,7 @@ BANDS = {
 }
 
 # ── Canvas regions ────────────────────────────────────────────────────────────
-# Four circles arranged in a 2 × 2 grid, well separated so they never touch.
+# Three circles: two on top, one bottom-centre.
 # Each circle maps to one SSVEP frequency and one training colour.
 # Geometry: normalised (x0, y0, x1, y1) bounding-box of the ellipse.
 #
@@ -60,39 +62,29 @@ BANDS = {
 #
 #     [Circle 0 — 8 Hz]       [Circle 1 — 10 Hz]
 #
-#     [Circle 2 — 12 Hz]      [Circle 3 — 15 Hz]
+#              [Circle 2 — 12 Hz]
 #
-# Radius ≈ 0.15 → pixel radius ≈ 82 px.
-# Horizontal gap between circles: 0.20 norm ≈ 140 px.
-# Vertical gap between circles:   0.14 norm ≈  77 px.
 
 CANVAS_REGIONS = [
     {
         "id": 0, "label": "Circle 1",
         "ssvep_freq": 8.0,
         "shape": "ellipse",
-        "coords": (0.10, 0.13, 0.40, 0.47),   # top-left circle
+        "coords": (0.10, 0.08, 0.42, 0.50),   # top-left
         "default_color": (220, 220, 220),
     },
     {
         "id": 1, "label": "Circle 2",
         "ssvep_freq": 10.0,
         "shape": "ellipse",
-        "coords": (0.60, 0.13, 0.90, 0.47),   # top-right circle
+        "coords": (0.58, 0.08, 0.90, 0.50),   # top-right
         "default_color": (220, 220, 220),
     },
     {
         "id": 2, "label": "Circle 3",
         "ssvep_freq": 12.0,
         "shape": "ellipse",
-        "coords": (0.10, 0.57, 0.40, 0.91),   # bottom-left circle
-        "default_color": (220, 220, 220),
-    },
-    {
-        "id": 3, "label": "Circle 4",
-        "ssvep_freq": 15.0,
-        "shape": "ellipse",
-        "coords": (0.60, 0.57, 0.90, 0.91),   # bottom-right circle
+        "coords": (0.34, 0.55, 0.66, 0.97),   # bottom-centre
         "default_color": (220, 220, 220),
     },
 ]

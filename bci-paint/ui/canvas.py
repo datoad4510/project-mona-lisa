@@ -13,7 +13,7 @@ from PyQt5.QtCore    import Qt, QRectF, QPointF, pyqtSignal
 from PyQt5.QtGui     import (
     QColor, QPainter, QPen, QBrush, QPainterPath, QFont,
 )
-from PyQt5.QtWidgets import QWidget
+from PyQt5.QtWidgets import QWidget, QSizePolicy
 
 import config
 
@@ -28,7 +28,8 @@ class PaintCanvas(QWidget):
 
     def __init__(self, parent=None, debug_click: bool = False):
         super().__init__(parent)
-        self.setFixedSize(config.CANVAS_W, config.CANVAS_H)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.setMinimumSize(400, 300)
         self.debug_click = debug_click
 
         self._fill: Dict[int, QColor] = {
@@ -114,6 +115,13 @@ class PaintCanvas(QWidget):
                 self.region_clicked.emit(region["id"])
                 break
 
+    def resizeEvent(self, event) -> None:
+        """Keep full-canvas child widgets (SSVEP overlays) covering the whole area."""
+        super().resizeEvent(event)
+        for child in self.children():
+            if isinstance(child, QWidget):
+                child.setGeometry(self.rect())
+
     # ------------------------------------------------------------------
     # Geometry
     # ------------------------------------------------------------------
@@ -134,10 +142,15 @@ class PaintCanvas(QWidget):
         cx   = bbox.center().x()
         cy   = bbox.center().y()
 
+        # Scale font sizes with the circle's bounding box height so labels
+        # stay readable at any window/fullscreen size.
+        freq_pt = max(8, int(bbox.height() * 0.096))
+        name_pt = max(6, int(bbox.height() * 0.053))
+
         painter.save()
 
         # Frequency label (large, top half of circle)
-        freq_font = QFont("Arial", 18, QFont.Bold)
+        freq_font = QFont("Arial", freq_pt, QFont.Bold)
         painter.setFont(freq_font)
         painter.setPen(QPen(QColor(255, 255, 255, 210)))
         freq_rect = QRectF(bbox.left(), cy - bbox.height() * 0.30,
@@ -146,7 +159,7 @@ class PaintCanvas(QWidget):
                          f"{region['ssvep_freq']:.4g} Hz")
 
         # Name label (smaller, lower)
-        name_font = QFont("Arial", 10)
+        name_font = QFont("Arial", name_pt)
         painter.setFont(name_font)
         painter.setPen(QPen(QColor(200, 200, 200, 160)))
         name_rect = QRectF(bbox.left(), cy + bbox.height() * 0.12,

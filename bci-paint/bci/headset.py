@@ -23,6 +23,7 @@ Usage
 
 from __future__ import annotations
 
+import logging
 import os
 import math
 import time
@@ -31,6 +32,8 @@ import numpy as np
 from typing import Callable, Optional
 
 import config
+
+log = logging.getLogger("headset")
 
 
 # ---------------------------------------------------------------------------
@@ -65,6 +68,8 @@ class Headset:
         """Begin streaming EEG.  *callback* receives (N_CH × N_SAMPLES) arrays."""
         self._callback = callback
         self._running  = True
+        mode = "MOCK" if self.mock else "REAL"
+        log.info("[headset] Starting in %s mode", mode)
         if self.mock:
             self._thread = threading.Thread(target=self._mock_loop, daemon=True)
             self._thread.start()
@@ -73,12 +78,14 @@ class Headset:
             self._thread.start()
 
     def stop(self) -> None:
+        log.info("[headset] Stopping")
         self._running = False
         if self._thread:
             self._thread.join(timeout=2.0)
         if self._device is not None:
             try:
                 self._device.StopAcquisition()
+                log.info("[headset] Acquisition stopped")
             except Exception:
                 pass
             self._device = None
@@ -103,7 +110,9 @@ class Headset:
             ) from exc
 
         try:
+            log.info("[headset] Scanning for paired devices…")
             available = UnicornPy.GetAvailableDevices(True)   # True = paired only
+            log.info("[headset] Paired devices found: %s", available)
             if not available:
                 raise RuntimeError(
                     "No paired Unicorn device found.  Pair the headset via "
@@ -115,28 +124,57 @@ class Headset:
                 serial = target
             else:
                 serial = available[0]
+                if target:
+                    log.warning("[headset] Requested serial %s not found; falling back to %s", target, serial)
 
+            log.info("[headset] Connecting to %s…", serial)
             self._device = UnicornPy.Unicorn(serial)
             self._device.StartAcquisition(False)   # False = real signal (not test)
+            log.info("[headset] ✓ Connected to %s — streaming started", serial)
 
             # Allocate a reusable receive buffer:
-            # each frame = NumberOfAcquiredChannels (17) float32 values = 17 × 4 bytes
-            buf_len = self._CHUNK * UnicornPy.NumberOfAcquiredChannels * 4
+            # each frame = TotalChannelsCount (17) float32 values = 17 × 4 bytes
+            n_total = UnicornPy.TotalChannelsCount   # 17 in SDK v4
+            buf_len = self._CHUNK * n_total * 4
             recv_buf = bytearray(buf_len)
+
+            chunks_received = 0
+            samples_received = 0
+            t_start = time.monotonic()
+            t_last_log = t_start
 
             while self._running:
                 self._device.GetData(self._CHUNK, recv_buf, buf_len)
 
                 # Parse: shape (CHUNK, 17), EEG is the first 8 columns
                 raw = np.frombuffer(recv_buf, dtype=np.float32)
-                raw = raw.reshape((self._CHUNK, UnicornPy.NumberOfAcquiredChannels))
+                raw = raw.reshape((self._CHUNK, n_total))
                 # Transpose to (N_CH, N_SAMPLES) — the rest of the app's convention
                 chunk = raw[:, :config.N_CHANNELS].T.copy()
+
+                chunks_received  += 1
+                samples_received += self._CHUNK
 
                 if self._callback:
                     self._callback(chunk)
 
+                # Log a stats line every 5 seconds
+                now = time.monotonic()
+                if now - t_last_log >= 5.0:
+                    elapsed   = now - t_start
+                    actual_hz = samples_received / elapsed
+                    eeg_mean  = float(np.mean(np.abs(chunk)))
+                    eeg_max   = float(np.max(np.abs(chunk)))
+                    log.info(
+                        "[headset] ✓ streaming  chunks=%d  samples=%d  "
+                        "rate=%.1f Hz  |EEG| mean=%.2f µV  max=%.2f µV",
+                        chunks_received, samples_received, actual_hz,
+                        eeg_mean, eeg_max,
+                    )
+                    t_last_log = now
+
         except Exception as exc:
+            log.error("[headset] ✗ Error: %s", exc)
             raise RuntimeError(f"Failed to stream from Unicorn: {exc}") from exc
         finally:
             if self._device is not None:
@@ -154,6 +192,13 @@ class Headset:
         t = 0.0
         rng = np.random.default_rng(42)
         sr  = config.SAMPLE_RATE
+
+        chunks_received = 0
+        samples_received = 0
+        t_start = time.monotonic()
+        t_last_log = t_start
+
+        log.info("[headset] Mock streaming started (%d Hz, %d channels)", sr, config.N_CHANNELS)
 
         while self._running:
             t_samples = np.arange(self._CHUNK) / sr + t
@@ -178,5 +223,20 @@ class Headset:
             if self._callback:
                 self._callback(chunk)
 
+            chunks_received  += 1
+            samples_received += self._CHUNK
             t += self._CHUNK_SECS
+
+            now = time.monotonic()
+            if now - t_last_log >= 5.0:
+                elapsed   = now - t_start
+                actual_hz = samples_received / elapsed
+                log.info(
+                    "[headset] mock  chunks=%d  samples=%d  rate=%.1f Hz  "
+                    "ssvep_freq=%s  color_state=%s",
+                    chunks_received, samples_received, actual_hz,
+                    self.mock_ssvep_freq, self.mock_color_state,
+                )
+                t_last_log = now
+
             time.sleep(self._CHUNK_SECS * 0.95)   # slight underslip prevents drift

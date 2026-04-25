@@ -26,12 +26,37 @@ from collections import deque
 import threading
 
 import numpy as np
+from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 
 import config
 from utils.signal_processing import extract_features
+
+
+# Number of scalar features extract_features() produces per channel
+_FEATS_PER_CH = len(config.BANDS) + 1   # 5 band powers + log-variance = 6
+
+
+class _ChannelWeighter(BaseEstimator, TransformerMixin):
+    """Scale feature blocks by per-channel weights.
+
+    Applied after StandardScaler so that channels with higher weight
+    contribute proportionally more to the LDA decision boundary.
+    """
+
+    def __init__(self, weights: list) -> None:
+        self.weights = weights
+
+    def fit(self, X, y=None):
+        # Build a flat weight vector: repeat each channel weight once per feature
+        w = np.repeat(self.weights, _FEATS_PER_CH).astype(np.float32)
+        self._w = w
+        return self
+
+    def transform(self, X, y=None):
+        return X * self._w
 
 
 class ColorClassifier:
@@ -80,8 +105,9 @@ class ColorClassifier:
         y = np.array(labels, dtype=int)
 
         self._pipeline = Pipeline([
-            ("scaler", StandardScaler()),
-            ("lda",    LinearDiscriminantAnalysis()),
+            ("scaler",   StandardScaler()),
+            ("weighter", _ChannelWeighter(config.COLOR_CHANNEL_WEIGHTS)),
+            ("lda",      LinearDiscriminantAnalysis()),
         ])
 
         # LOO cross-validation accuracy

@@ -2,7 +2,7 @@
 
 Usage
 -----
-Run with the real Neurosity Crown:
+Run with the real Unicorn Hybrid Black:
     python main.py
 
 Run in mock / demo mode (no headset required):
@@ -14,6 +14,17 @@ Add --debug-click to enable mouse-click region selection while testing:
 
 import sys
 import argparse
+import logging
+
+from dotenv import load_dotenv
+load_dotenv()
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s  %(levelname)-8s  %(message)s",
+    datefmt="%H:%M:%S",
+    stream=sys.stdout,
+)
 
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtGui     import QIcon, QPalette, QColor
@@ -46,7 +57,7 @@ def _apply_dark_theme(app: QApplication) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="BCI Paint — Neurosity Crown")
+    parser = argparse.ArgumentParser(description="BCI Paint — Unicorn Hybrid Black")
     parser.add_argument(
         "--mock",
         action="store_true",
@@ -57,13 +68,18 @@ def main() -> None:
         action="store_true",
         help="Allow mouse clicks to select/fill regions (useful for UI testing)",
     )
+    parser.add_argument(
+        "--fullscreen",
+        action="store_true",
+        help="Launch in fullscreen mode (toggle with F11, exit with Escape)",
+    )
     args = parser.parse_args()
 
     qt_app = QApplication(sys.argv)
     qt_app.setApplicationName("BCI Paint")
     _apply_dark_theme(qt_app)
 
-    window = BCIPaintApp(mock=args.mock, debug_click=args.debug_click)
+    window = BCIPaintApp(mock=args.mock, debug_click=args.debug_click, fullscreen=args.fullscreen)
     window.show()
 
     sys.exit(qt_app.exec_())
